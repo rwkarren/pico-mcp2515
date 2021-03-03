@@ -1,7 +1,8 @@
 #ifndef _MCP2515_H_
 #define _MCP2515_H_
 
-#include <SPI.h>
+#include "pico/stdlib.h"
+#include "hardware/spi.h"
 #include "can.h"
 
 /*
@@ -441,9 +442,10 @@ class MCP2515
             REGISTER DATA;
             CANINTF  CANINTF_RXnIF;
         } RXB[N_RXBUFFERS];
-
-        uint8_t SPICS;
-
+        
+        spi_inst_t *SPI_PORT;
+        uint PIN_CS;
+        
     private:
 
         void startSPI();
@@ -460,7 +462,7 @@ class MCP2515
         void prepareId(uint8_t *buffer, const bool ext, const uint32_t id);
     
     public:
-        MCP2515(const uint8_t _CS);
+        MCP2515(spi_inst_t *SPI_PORT, uint PIN_CS, uint PIN_MISO, uint PIN_MOSI, uint PIN_SCK);
         ERROR reset(void);
         ERROR setConfigMode();
         ERROR setListenOnlyMode();

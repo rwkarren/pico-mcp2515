@@ -1,5 +1,7 @@
-#include "Arduino.h"
+#include "pico/stdlib.h"
+#include "hardware/spi.h"
 #include "mcp2515.h"
+#include <cstring>
 
 const struct MCP2515::TXBn_REGS MCP2515::TXB[MCP2515::N_TXBUFFERS] = {
     {MCP_TXB0CTRL, MCP_TXB0SIDH, MCP_TXB0DATA},
@@ -12,32 +14,41 @@ const struct MCP2515::RXBn_REGS MCP2515::RXB[N_RXBUFFERS] = {
     {MCP_RXB1CTRL, MCP_RXB1SIDH, MCP_RXB1DATA, CANINTF_RX1IF}
 };
 
-MCP2515::MCP2515(const uint8_t _CS)
+MCP2515::MCP2515(spi_inst_t *SPI_PORT, uint PIN_CS, uint PIN_MISO, uint PIN_MOSI, uint PIN_SCK)
 {
-    SPI.begin();
+    this->SPI_PORT = SPI_PORT;
+    this->PIN_CS = PIN_CS;
 
-    SPICS = _CS;
-    pinMode(SPICS, OUTPUT);
+    spi_init(SPI_PORT, SPI_CLOCK);
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+
+    gpio_init(PIN_CS);
+    gpio_set_dir(PIN_CS, GPIO_OUT);
+    gpio_put(PIN_CS, 1);
+
     endSPI();
 }
 
 void MCP2515::startSPI() {
-    SPI.beginTransaction(SPISettings(SPI_CLOCK, MSBFIRST, SPI_MODE0));
-    digitalWrite(SPICS, LOW);
+    spi_init(SPI_PORT, SPI_CLOCK);
+    gpio_put(PIN_CS, 0);
 }
 
 void MCP2515::endSPI() {
-    digitalWrite(SPICS, HIGH);
-    SPI.endTransaction();
+    gpio_put(PIN_CS, 1);
+    spi_deinit(SPI_PORT);
 }
 
 MCP2515::ERROR MCP2515::reset(void)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_RESET);
+    uint8_t data = INSTRUCTION_RESET;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
     endSPI();
 
-    delay(10);
+    sleep_ms(10);
 
     uint8_t zeros[14];
     memset(zeros, 0, sizeof(zeros));
@@ -85,22 +96,27 @@ MCP2515::ERROR MCP2515::reset(void)
 uint8_t MCP2515::readRegister(const REGISTER reg)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_READ);
-    SPI.transfer(reg);
-    uint8_t ret = SPI.transfer(0x00);
+    uint8_t data = INSTRUCTION_READ;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    data = reg;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    spi_read_blocking(SPI_PORT, 0x00, &data, sizeof(data));
     endSPI();
 
-    return ret;
+    return data;
 }
 
 void MCP2515::readRegisters(const REGISTER reg, uint8_t values[], const uint8_t n)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_READ);
-    SPI.transfer(reg);
+    uint8_t data = INSTRUCTION_READ;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    data = reg;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+
     // mcp2515 has auto-increment of address-pointer
-    for (uint8_t i=0; i<n; i++) {
-        values[i] = SPI.transfer(0x00);
+    for (uint8_t i = 0; i < n; i++) {
+        spi_read_blocking(SPI_PORT, 0x00, &values[i], sizeof(values[i]));
     }
     endSPI();
 }
@@ -108,41 +124,48 @@ void MCP2515::readRegisters(const REGISTER reg, uint8_t values[], const uint8_t 
 void MCP2515::setRegister(const REGISTER reg, const uint8_t value)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_WRITE);
-    SPI.transfer(reg);
-    SPI.transfer(value);
+    uint8_t data = INSTRUCTION_WRITE;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    data = reg;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    spi_write_blocking(SPI_PORT, &value, sizeof(value));
     endSPI();
 }
 
 void MCP2515::setRegisters(const REGISTER reg, const uint8_t values[], const uint8_t n)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_WRITE);
-    SPI.transfer(reg);
+    uint8_t data = INSTRUCTION_WRITE;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    data = reg;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
     for (uint8_t i=0; i<n; i++) {
-        SPI.transfer(values[i]);
+        spi_write_blocking(SPI_PORT, &values[i], sizeof(values[i]));
     }
     endSPI();
 }
 
-void MCP2515::modifyRegister(const REGISTER reg, const uint8_t mask, const uint8_t data)
+void MCP2515::modifyRegister(const REGISTER reg, const uint8_t mask, const uint8_t send)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_BITMOD);
-    SPI.transfer(reg);
-    SPI.transfer(mask);
-    SPI.transfer(data);
+    uint8_t data = INSTRUCTION_BITMOD;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    data = reg;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    spi_write_blocking(SPI_PORT, &mask, sizeof(mask));
+    spi_write_blocking(SPI_PORT, &send, sizeof(send));
     endSPI();
 }
 
 uint8_t MCP2515::getStatus(void)
 {
     startSPI();
-    SPI.transfer(INSTRUCTION_READ_STATUS);
-    uint8_t i = SPI.transfer(0x00);
+    uint8_t data = INSTRUCTION_READ_STATUS;
+    spi_write_blocking(SPI_PORT, &data, sizeof(data));
+    spi_read_blocking(SPI_PORT, 0x00, &data, sizeof(data));
     endSPI();
 
-    return i;
+    return data;
 }
 
 MCP2515::ERROR MCP2515::setConfigMode()
@@ -174,9 +197,9 @@ MCP2515::ERROR MCP2515::setMode(const CANCTRL_REQOP_MODE mode)
 {
     modifyRegister(MCP_CANCTRL, CANCTRL_REQOP, mode);
 
-    unsigned long endTime = millis() + 10;
+    unsigned long endTime = to_ms_since_boot(get_absolute_time()) + 10;
     bool modeMatch = false;
-    while (millis() < endTime) {
+    while (to_ms_since_boot(get_absolute_time()) < endTime) {
         uint8_t newmode = readRegister(MCP_CANSTAT);
         newmode &= CANSTAT_OPMOD;
 
