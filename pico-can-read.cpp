@@ -15,20 +15,26 @@ struct can_frame canMsg;
 
 void init()
 {
+    stdio_init_all();
     can.reset();
     can.setBitrate(CAN_250KBPS, MCP_12MHZ);
     can.setNormalMode();
 
     printf("------- CAN Read ----------\n");
-    printf("ID  DLC   DATA");
+    printf("ID         DLC  DATA\n");
 }
 
 
 int main()
 {
+    init();
     while (true) {
         if (can.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-            printf("%08X %02X ",canMsg.can_id, canMsg.can_dlc); // print ID and DLC
+            if (canMsg.can_id >> 31) { // extended frame
+                printf("0x%08X   %01X    ", (canMsg.can_id & 0x01FFFFFFF), canMsg.can_dlc); // print ID and DLC
+            } else { // standard frame
+                printf("     0x%03X   %01X    ", canMsg.can_id, canMsg.can_dlc); // print ID and DLC
+            }
             for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
                 printf("%02X", canMsg.data[i]);
                 printf(" ");

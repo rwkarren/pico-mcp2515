@@ -28,6 +28,9 @@ add_executable(pico-can-write pico-can-write.cpp mcp2515.cpp)
 pico_set_program_name(pico-can-read "pico-can-read")
 pico_set_program_version(pico-can-read "0.1")
 
+pico_enable_stdio_uart(pico-can-read 1)
+pico_enable_stdio_usb(pico-can-read 0)
+
 pico_set_program_name(pico-can-write "pico-can-write")
 pico_set_program_version(pico-can-write "0.1")
 

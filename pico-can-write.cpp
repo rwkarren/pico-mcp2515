@@ -15,12 +15,13 @@ struct can_frame canMsg;
 
 void init()
 {
+    stdio_init_all();
     can.reset();
     can.setBitrate(CAN_250KBPS, MCP_12MHZ);
     can.setNormalMode();
 
     printf("------- CAN WRITE ----------\n");
-    printf("ID  DLC   DATA");
+    printf("ID       DLC   DATA\n");
 }
 
 
@@ -29,6 +30,7 @@ int main()
     int count = 0;
     int sendrate_ms = 500;
 
+    init();
     while (true) {
         uint8_t offset = count * 8;
         canMsg.can_id   = 0x420;
@@ -43,7 +45,7 @@ int main()
         canMsg.data[7]  = 7 + offset;
         count++;
         can.sendMessage(&canMsg);
-        printf("%08X %02X ",canMsg.can_id, canMsg.can_dlc); // print ID and DLC
+        printf("%08X %02X    ",canMsg.can_id, canMsg.can_dlc); // print ID and DLC
             for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
                 printf("%02X", canMsg.data[i]);
                 printf(" ");
