@@ -22,16 +22,21 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(pico-mcp2515 main.cpp mcp2515.cpp)
+add_executable(pico-can-read pico-can-read.cpp mcp2515.cpp)
+add_executable(pico-can-write pico-can-write.cpp mcp2515.cpp)
 
-pico_set_program_name(pico-mcp2515 "pico-mcp2515")
-pico_set_program_version(pico-mcp2515 "0.1")
+pico_set_program_name(pico-can-read "pico-can-read")
+pico_set_program_version(pico-can-read "0.1")
 
-pico_enable_stdio_uart(pico-mcp2515 1)
-pico_enable_stdio_usb(pico-mcp2515 0)
+pico_set_program_name(pico-can-write "pico-can-write")
+pico_set_program_version(pico-can-write "0.1")
+
+pico_enable_stdio_uart(pico-can-write 1)
+pico_enable_stdio_usb(pico-can-write 0)
 
 # Add libraries
-target_link_libraries(pico-mcp2515 pico_stdlib hardware_spi)
+target_link_libraries(pico-can-read pico_stdlib hardware_spi)
+target_link_libraries(pico-can-write pico_stdlib hardware_spi)
 
-pico_add_extra_outputs(pico-mcp2515)
-
+pico_add_extra_outputs(pico-can-read)
+pico_add_extra_outputs(pico-can-write)
